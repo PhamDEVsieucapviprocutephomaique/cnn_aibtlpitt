@@ -1,65 +1,56 @@
 """
-Configuration file - Tối ưu cho tốc độ cao
+Configuration - Updated for better shape recognition
 """
 import os
 
-# Paths
+# BASE PATHS
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA_DIR = os.path.join(BASE_DIR, 'data')
 MODELS_DIR = os.path.join(BASE_DIR, 'models')
-MNIST_DIR = os.path.join(DATA_DIR, 'mnist')
-SHAPES_DIR = os.path.join(DATA_DIR, 'shapes')
+DATA_DIR = os.path.join(BASE_DIR, 'data')
 
-# Model paths
-MNIST_MODEL_PATH = os.path.join(MODELS_DIR, 'mnist_optimized.h5')
-SHAPE_MODEL_PATH = os.path.join(MODELS_DIR, 'shape_optimized.h5')
-MNIST_TFLITE_PATH = os.path.join(MODELS_DIR, 'mnist_optimized.tflite')
-SHAPE_TFLITE_PATH = os.path.join(MODELS_DIR, 'shape_optimized.tflite')
+# MODEL PATHS
+MNIST_MODEL_PATH = os.path.join(MODELS_DIR, 'mnist_model.h5')
+MNIST_TFLITE_PATH = os.path.join(MODELS_DIR, 'mnist_model.tflite')
+SHAPE_MODEL_PATH = os.path.join(MODELS_DIR, 'shape_model.h5')
+SHAPE_TFLITE_PATH = os.path.join(MODELS_DIR, 'shape_model.tflite')
 
-# Training config
+# MNIST CONFIG
 MNIST_CONFIG = {
     'img_size': (28, 28),
-    'batch_size': 128,
+    'batch_size': 32,
     'epochs': 10,
     'learning_rate': 0.001,
-    'num_classes': 10,
-    'use_mixed_precision': True,  # Tăng tốc training
+    'num_classes': 10
 }
 
+# SHAPE CONFIG - Updated for better accuracy
 SHAPE_CONFIG = {
-    'img_size': (64, 64),  # Nhỏ hơn để nhanh hơn
-    'batch_size': 64,
-    'epochs': 15,
-    'learning_rate': 0.001,
-    'num_classes': 3,  # circle, rectangle, triangle
-    'use_mixed_precision': True,
+    'img_size': (64, 64),
+    'batch_size': 32,
+    'epochs': 20,  # Increased epochs
+    'learning_rate': 0.0005,  # Lower learning rate
+    'num_classes': 3
 }
 
-# Preprocessing config
+# SHAPE CLASSES - More specific
+SHAPE_CLASSES = ['circle', 'square', 'triangle']
+
+# PREPROCESSING CONFIG
 PREPROCESS_CONFIG = {
     'use_cache': True,
-    'cache_size': 100,  # Cache 100 ảnh gần nhất
-    'use_gpu': True,
-    'num_threads': 4,
+    'cache_size': 100,
+    'target_size_mnist': (28, 28),
+    'target_size_shape': (64, 64)
 }
 
-# UI config
-UI_CONFIG = {
-    'window_size': (1000, 700),
-    'preview_size': (400, 400),
-    'result_font_size': 24,
-    'bg_color': '#2b2b2b',
-    'text_color': '#ffffff',
-}
-
-# Optimization flags
+# OPTIMIZATION CONFIG
 OPTIMIZATION = {
-    'use_tflite': False,  # Dùng TFLite cho inference nhanh
-    'use_quantization': False,  # INT8 quantization
-    'use_multithreading': True,
-    'enable_xla': False,  # XLA compilation
+    'use_tflite': True,
+    'use_quantization': True,
+    'use_gpu': True,
+    'num_threads': 4
 }
 
-# Shape classes
-SHAPE_CLASSES = ['circle', 'rectangle', 'triangle']
-MNIST_CLASSES = list(range(10))
+# Create directories
+os.makedirs(MODELS_DIR, exist_ok=True)
+os.makedirs(DATA_DIR, exist_ok=True)

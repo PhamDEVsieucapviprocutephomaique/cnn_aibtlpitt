@@ -1,5 +1,5 @@
 """
-Image Preprocessor - Xử lý ảnh siêu nhanh với caching và vectorization
+Image Preprocessor - ĐÃ FIX: bỏ inversion cho shape
 """
 import cv2
 import numpy as np
@@ -45,41 +45,41 @@ class ImageCache:
         self.access_order.append(img_hash)
 
 
-class FastPreprocessor:
-    """Preprocessor tối ưu tốc độ"""
+class FixedPreprocessor:
+    """Preprocessor ĐÃ FIX: shape giữ nguyên, mnist mới invert"""
     
     def __init__(self):
         self.cache = ImageCache(PREPROCESS_CONFIG['cache_size']) if PREPROCESS_CONFIG['use_cache'] else None
     
     def preprocess_for_mnist(self, image, use_cache=True):
         """
-        Preprocess ảnh cho MNIST - siêu tối ưu
-        Input: PIL Image hoặc numpy array
-        Output: numpy array (1, 28, 28, 1)
+        Preprocess ảnh cho MNIST - CÓ INVERT (vì dataset MNIST là chữ trắng nền đen)
         """
         if isinstance(image, Image.Image):
             img = np.array(image)
         else:
-            img = image
+            img = image.copy()
         
         if use_cache and self.cache:
             cached = self.cache.get(img)
             if cached is not None:
                 return cached
         
+        # Convert to grayscale
         if len(img.shape) == 3:
             if img.shape[2] == 4:
                 img = cv2.cvtColor(img, cv2.COLOR_RGBA2GRAY)
             elif img.shape[2] == 3:
                 img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
         
+        # Resize
         img = cv2.resize(img, (28, 28), interpolation=cv2.INTER_AREA)
         
-        _, img = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY)
+        # CHỈ MNIST MỚI INVERT - QUAN TRỌNG!
+        if np.mean(img) > 127:  # Nếu nền trắng
+            img = 255 - img     # Đảo thành nền đen chữ trắng
         
-        if np.mean(img) > 127:
-            img = 255 - img
-        
+        # Normalize
         img = img.astype('float32') / 255.0
         
         img = img.reshape(1, 28, 28, 1)
@@ -91,32 +91,31 @@ class FastPreprocessor:
     
     def preprocess_for_shape(self, image, use_cache=True):
         """
-        Preprocess ảnh cho Shape detection - siêu tối ưu
-        Input: PIL Image hoặc numpy array
-        Output: numpy array (1, 64, 64, 1)
+        Preprocess ảnh cho Shape detection - KHÔNG INVERT (giữ nguyên bản vẽ)
         """
         if isinstance(image, Image.Image):
             img = np.array(image)
         else:
-            img = image
+            img = image.copy()
         
         if use_cache and self.cache:
             cached = self.cache.get(img)
             if cached is not None:
                 return cached
         
+        # Convert to grayscale
         if len(img.shape) == 3:
             if img.shape[2] == 4:
                 img = cv2.cvtColor(img, cv2.COLOR_RGBA2GRAY)
             elif img.shape[2] == 3:
                 img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
         
+        # Resize
         img = cv2.resize(img, (64, 64), interpolation=cv2.INTER_AREA)
         
-        img = cv2.bilateralFilter(img, 5, 50, 50)
+        # KHÔNG THRESHOLD, KHÔNG INVERT - GIỮ NGUYÊN BẢN VẼ
         
-        _, img = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        
+        # Normalize
         img = img.astype('float32') / 255.0
         
         img = img.reshape(1, 64, 64, 1)
@@ -128,40 +127,37 @@ class FastPreprocessor:
     
     def auto_detect_and_preprocess(self, image):
         """
-        Auto detect loại ảnh và preprocess phù hợp
+        Auto detect loại ảnh bằng diện tích contour
         Returns: (processed_img, detected_type)
         """
         if isinstance(image, Image.Image):
             img = np.array(image)
         else:
-            img = image
+            img = image.copy()
         
+        # Convert to grayscale
         if len(img.shape) == 3:
             gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
         else:
             gray = img
         
-        edges = cv2.Canny(gray, 50, 150)
-        contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # Phân tích contour để phân biệt số vs hình
+        _, thresh = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY_INV)
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
         if contours:
             max_contour = max(contours, key=cv2.contourArea)
             area = cv2.contourArea(max_contour)
             img_area = gray.shape[0] * gray.shape[1]
             
-            if area / img_area > 0.1:
+            # Hình lớn -> shape, số nhỏ -> mnist
+            if area / img_area > 0.3:  # Chiếm >30% diện tích
                 processed = self.preprocess_for_shape(image)
                 return processed, 'shape'
         
+        # Mặc định là số
         processed = self.preprocess_for_mnist(image)
         return processed, 'mnist'
-    
-    def batch_preprocess(self, images, target='mnist'):
-        """Preprocess batch ảnh - vectorized"""
-        if target == 'mnist':
-            return np.concatenate([self.preprocess_for_mnist(img, use_cache=False) for img in images])
-        else:
-            return np.concatenate([self.preprocess_for_shape(img, use_cache=False) for img in images])
 
 
 _preprocessor = None
@@ -170,27 +166,5 @@ def get_preprocessor():
     """Singleton preprocessor"""
     global _preprocessor
     if _preprocessor is None:
-        _preprocessor = FastPreprocessor()
+        _preprocessor = FixedPreprocessor()
     return _preprocessor
-
-
-if __name__ == "__main__":
-    preprocessor = FastPreprocessor()
-    
-    test_img = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
-    
-    import time
-    
-    start = time.perf_counter()
-    for _ in range(100):
-        result = preprocessor.preprocess_for_mnist(test_img)
-    elapsed = (time.perf_counter() - start) * 1000 / 100
-    print(f"MNIST preprocessing: {elapsed:.2f}ms per image")
-    
-    start = time.perf_counter()
-    for _ in range(100):
-        result = preprocessor.preprocess_for_shape(test_img)
-    elapsed = (time.perf_counter() - start) * 1000 / 100
-    print(f"Shape preprocessing: {elapsed:.2f}ms per image")
-    
-    print("\nPreprocessor test successful!")

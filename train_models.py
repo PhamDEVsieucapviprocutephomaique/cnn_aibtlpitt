@@ -1,5 +1,5 @@
 """
-Training Script - Train cả 2 models
+Training Script - Updated imports
 Chạy file này để train models lần đầu
 """
 import os
@@ -43,7 +43,7 @@ def main():
     print("=" * 60)
     print("\nModels saved to:", MODELS_DIR)
     print("\nYou can now run the application:")
-    print("  python app/main_app.py")
+    print("  python app/enhanced_gui.py")
     print("=" * 60)
 
 

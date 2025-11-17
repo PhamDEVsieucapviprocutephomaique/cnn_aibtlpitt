@@ -1,5 +1,5 @@
 """
-Model Builder - Xây dựng models tối ưu tốc độ
+Model Builder - Complete version với tất cả functions
 """
 import os
 import sys
@@ -50,26 +50,39 @@ class OptimizedMNISTModel:
         return model
 
 
-class OptimizedShapeModel:
-    """Shape Model tối ưu - siêu nhanh"""
+class EnhancedShapeModel:
+    """Enhanced Shape Model với architecture tốt hơn"""
     
     @staticmethod
     def build():
-        """Build ultra-light CNN cho shapes"""
+        """Build better CNN cho shapes"""
         img_size = SHAPE_CONFIG['img_size'][0]
         
         model = models.Sequential([
             # Conv block 1
-            layers.Conv2D(16, (3, 3), activation='relu', input_shape=(img_size, img_size, 1)),
+            layers.Conv2D(32, (3, 3), activation='relu', input_shape=(img_size, img_size, 1)),
+            layers.BatchNormalization(),
             layers.MaxPooling2D((2, 2)),
+            layers.Dropout(0.25),
             
             # Conv block 2
-            layers.Conv2D(32, (3, 3), activation='relu'),
+            layers.Conv2D(64, (3, 3), activation='relu'),
+            layers.BatchNormalization(),
             layers.MaxPooling2D((2, 2)),
+            layers.Dropout(0.25),
             
-            # Dense layers - rất compact
+            # Conv block 3
+            layers.Conv2D(128, (3, 3), activation='relu'),
+            layers.BatchNormalization(),
+            layers.MaxPooling2D((2, 2)),
+            layers.Dropout(0.25),
+            
+            # Dense layers
             layers.Flatten(),
-            layers.Dense(32, activation='relu'),
+            layers.Dense(256, activation='relu'),
+            layers.BatchNormalization(),
+            layers.Dropout(0.5),
+            layers.Dense(128, activation='relu'),
             layers.Dropout(0.3),
             layers.Dense(3, activation='softmax')
         ])
@@ -179,45 +192,60 @@ def train_mnist_model(data, save_path=MNIST_MODEL_PATH):
 
 
 def train_shape_model(data, save_path=SHAPE_MODEL_PATH):
-    """Train Shape model với tối ưu"""
+    """Train enhanced Shape model"""
     (x_train, y_train), (x_test, y_test) = data
     
-    print("\n=== Training Shape Model ===")
-    model = OptimizedShapeModel.build()
+    print("\n=== Training Enhanced Shape Model ===")
+    model = EnhancedShapeModel.build()
     print(model.summary())
     
+    # Enhanced callbacks
     callbacks = [
         keras.callbacks.EarlyStopping(
             monitor='val_accuracy',
-            patience=3,
-            restore_best_weights=True
+            patience=5,  # Increased patience
+            restore_best_weights=True,
+            min_delta=0.001
         ),
         keras.callbacks.ReduceLROnPlateau(
             monitor='val_loss',
             factor=0.5,
-            patience=2
+            patience=3,
+            min_lr=1e-7
+        ),
+        keras.callbacks.ModelCheckpoint(
+            os.path.join(MODELS_DIR, 'checkpoints', 'shape_best.h5'),
+            monitor='val_accuracy',
+            save_best_only=True,
+            verbose=1
         )
     ]
     
+    # Training với data augmentation
     history = model.fit(
         x_train, y_train,
         batch_size=SHAPE_CONFIG['batch_size'],
         epochs=SHAPE_CONFIG['epochs'],
         validation_data=(x_test, y_test),
         callbacks=callbacks,
-        verbose=1
+        verbose=1,
+        shuffle=True
     )
     
+    # Evaluate
     test_loss, test_acc = model.evaluate(x_test, y_test, verbose=0)
     print(f"\nTest accuracy: {test_acc*100:.2f}%")
     
+    # Save
     model.save(save_path)
     print(f"Model saved: {save_path}")
     
+    # Convert to TFLite
     if OPTIMIZATION['use_tflite']:
         tflite_path = SHAPE_TFLITE_PATH
         ModelOptimizer.convert_to_tflite(model, tflite_path, OPTIMIZATION['use_quantization'])
     
+    # Benchmark
     ModelOptimizer.benchmark_model(model, (x_test, y_test))
     
     return model, history
