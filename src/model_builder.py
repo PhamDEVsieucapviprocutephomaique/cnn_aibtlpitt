@@ -9,7 +9,7 @@ from tensorflow.keras import layers, models
 import numpy as np
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from configs.config import *
+from configs.fast_config import *
 
 
 # Enable XLA compilation cho tốc độ cao hơn

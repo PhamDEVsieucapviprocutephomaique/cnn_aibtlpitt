@@ -8,7 +8,7 @@ import cv2
 from sklearn.model_selection import train_test_split
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from configs.config import *
+from configs.fast_config import *
 
 
 class MNISTLoader:
